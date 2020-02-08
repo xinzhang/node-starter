@@ -1,0 +1,8 @@
+{
+  "prettier.tabWidth": 2,
+  "prettier.useTabs": false,
+  "eslint.format.enable": true,
+  "editor.formatOnType": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+}
