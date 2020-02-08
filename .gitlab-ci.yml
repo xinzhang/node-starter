@@ -1,0 +1,83 @@
+variables:
+  IMAGE_API: $GCLOUD_CONTAINER_REGISTRY/node-starter
+  IMAGE_DOCKER: $GCLOUD_CONTAINER_REGISTRY/docker-ci-kubernetes
+  GCLOUD_SERVICE_KEY: '$ORG_GCLOUD_SERVICE_KEY'
+  CHART: 'node-starter'
+
+stages:
+  - test
+  - build
+  - development
+  - production
+
+.test-template: &test-template
+  image:
+    name: node:13-alpine
+  only:
+    changes:
+      - '**/*.{ts,js,jsx,json}'
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+  before_script:
+    - node --version
+    - npm install
+    - apk update && apk add gettext
+    - envsubst < .env.tmpl > .env
+    - cat .env
+
+unit-test:
+  <<: *test-template
+  stage: test
+  variables:
+    DEPLOY_ENV: 'dev'
+  script:
+    - npm run test
+
+build_publish_image:
+  stage: build
+  services:
+    - docker:18-dind
+  image:
+    name: $IMAGE_DOCKER
+  before_script:
+    - echo "$GCLOUD_SERVICE_KEY" > "$HOME/gcloud-service-key.json"
+    - gcloud auth activate-service-account --key-file "$HOME/gcloud-service-key.json"
+    - gcloud auth configure-docker
+  script:
+    - docker build --tag "$IMAGE_API:$CI_BUILD_REF" .
+    - docker tag "$IMAGE_API:$CI_BUILD_REF" "$IMAGE_API:latest"
+    - docker push "$IMAGE_API:$CI_BUILD_REF"
+    - docker push "$IMAGE_API:latest"
+
+.deploy_template: &deploy_template
+  image:
+    name: $SCA_IMAGE_DOCKER
+  before_script:
+    - echo "$GCLOUD_SERVICE_KEY" > "$HOME/gcloud-service-key.json"
+    - gcloud auth activate-service-account --key-file "$HOME/gcloud-service-key.json"
+    - gcloud container clusters get-credentials "$CLOUDSDK_CONTAINER_CLUSTER"
+    - envsubst < .gitlab/common.tmpl.yaml > .gitlab/common.yaml
+    - cat .gitlab/common.yaml
+  script:
+    - helm upgrade --install --debug --wait --force --tiller-namespace infra --namespace api -f .gitlab/common.yaml "$CHART" chart/
+
+deploy_dev:
+  <<: *deploy_template
+  stage: development
+  variables:
+    DEPLOY_ENV: 'dev'
+    CLOUDSDK_CORE_PROJECT: '$DEV_CLOUDSDK_CORE_PROJECT'
+    CLOUDSDK_COMPUTE_ZONE: '$DEV_CLOUDSDK_COMPUTE_ZONE'
+    CLOUDSDK_CONTAINER_CLUSTER: '$DEV_CLOUDSDK_CONTAINER_CLUSTER'
+
+deploy_prod:
+  <<: *deploy_template
+  stage: production
+  when: manual
+  variables:
+    DEPLOY_ENV: 'prod'
+    CLOUDSDK_CORE_PROJECT: '$PROD_CLOUDSDK_CORE_PROJECT'
+    CLOUDSDK_COMPUTE_ZONE: '$PROD_CLOUDSDK_COMPUTE_ZONE'
+    CLOUDSDK_CONTAINER_CLUSTER: '$$PROD_CLOUDSDK_CONTAINER_CLUSTER'

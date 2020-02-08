@@ -1,0 +1,53 @@
+replicaCount: 1
+
+image:
+  repository: "$GCLOUD_CONTAINER_REGISTRY/mercury-cms-sync"
+  tag: $CI_COMMIT_SHA
+
+ingress:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: cms-sync.mercury-api-gateway.$DEPLOY_ENV.scadigital.com.au
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_clear_headers Server X-Powered-By;
+  enabled: true
+  hosts:
+    - cms-sync.mercury-api-gateway.$DEPLOY_ENV.scadigital.com.au
+  tls:
+    - hosts:
+        - cms-sync.mercury-api-gateway.$DEPLOY_ENV.scadigital.com.au
+      secretName: letsencrypt-production-mercury-api-gateway
+
+env:
+  - name: "ELASTICSEARCH_HOST"
+    value: "elastic.search.$DEPLOY_ENV.scadigital.com.au"
+  - name: "ELASTICSEARCH_PORT"
+    value: "443"
+  - name: "ELASTICSEARCH_HTTPS"
+    value: "true"
+  - name: "ELASTICSEARCH_USER"
+    value: "$ELASTICSEARCH_USER"
+  - name: "ELASTICSEARCH_PASSWORD"
+    value: "$ELASTICSEARCH_PASSWORD"
+  - name: "PORT"
+    value: "3000"
+  - name: "SQUIDEX_HOST"
+    value: "https://master.mercury-cms.$DEPLOY_ENV.scadigital.com.au"
+  - name: "SQUIDEX_CLIENT_ID"
+    value: "$SQUIDEX_CLIENT_ID"
+  - name: "SQUIDEX_CLIENT_SECRET"
+    value: "$SQUIDEX_CLIENT_SECRET"
+  - name: "SQUIDEX_PROJECT_ID"
+    value: "$SQUIDEX_PROJECT_ID"
+  - name: "ELASTICSEARCH_INDEX_CATEGORIES"
+    value: "mercury-squidex-categories"
+  - name: "ELASTICSEARCH_INDEX_CREATORS"
+    value: "mercury-squidex-creators"
+  - name: "ELASTICSEARCH_INDEX_PLAYLISTS"
+    value: "mercury-squidex-playlists"
+  - name: "ELASTICSEARCH_INDEX_PODCASTS"
+    value: "mercury-squidex-podasts"
+  - name: "ELASTICSEARCH_INDEX_PUBLISHERS"
+    value: "mercury-squidex-publishers"
+    
+  
